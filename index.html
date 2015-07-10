@@ -1,0 +1,485 @@
+<!doctype html>
+<html lang="en">
+
+	<head>
+		<meta charset="utf-8">
+
+        <title>PSR-7 and Symfony</title>
+
+        <meta name="description" content="PSR-7 support in Symfony">
+        <meta name="author" content="Kévin Dunglas">
+
+		<meta name="apple-mobile-web-app-capable" content="yes" />
+		<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+
+		<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, minimal-ui">
+
+        <link rel="stylesheet" href="bower_components/font-awesome/css/font-awesome.min.css">
+        <link rel="stylesheet" href="css/reveal.css">
+        <link rel="stylesheet" href="css/theme/league.css" id="theme">
+
+		<!-- Code syntax highlighting -->
+		<link rel="stylesheet" href="lib/css/zenburn.css">
+
+		<!-- Printing and PDF exports -->
+		<script>
+			var link = document.createElement( 'link' );
+			link.rel = 'stylesheet';
+			link.type = 'text/css';
+			link.href = window.location.search.match( /print-pdf/gi ) ? 'css/print/pdf.css' : 'css/print/paper.css';
+			document.getElementsByTagName( 'head' )[0].appendChild( link );
+		</script>
+
+		<!--[if lt IE 9]>
+		<script src="lib/js/html5shiv.js"></script>
+		<![endif]-->
+	</head>
+
+	<body>
+
+		<div class="reveal">
+
+			<div class="slides">
+                <section>
+                    <h1>PSR-7 and Symfony</h1>
+
+                    <img src="img/PSR-7.png" alt="PSR-7">
+                </section>
+
+                <section>
+                    <section>
+                        <div style="float: left; width: 60%">
+                            <h2><a href="https://dunglas.fr">Kévin Dunglas</a></h2>
+
+                            <ul>
+                                <li>Founder of <a href="http://les-tilleuls.coop">Les-Tilleuls.coop</a></li>
+                                <li><a href="https://symfony.com">Symfony</a> core-team</li>
+                                <li><a href="http://api-platform">API Platform</a> creator</li>
+                                <li>
+                                    <a href="https://twitter.com/dunglas"><i class="fa fa-twitter"></i></a> <a href="https://github.com/dunglas"><i class="fa fa-github"></i></a> @dunglas
+                                </li>
+                            </ul>
+                        </div>
+                        <div style="float: left; width: 40%">
+                            <img alt="Kévin Dunglas" src="https://pbs.twimg.com/profile_images/378800000195280241/d7231c460212ead430782025e1fd1c92.png">
+                        </div>
+                    </section>
+
+                    <section>
+                        <h2><a href="http://les-tilleuls.coop">Les-Tilleuls.coop</a></h2>
+
+                        <div style="float: left; width: 60%">
+                            <ul>
+                                <li>Symfony, AngularJS, Magento, e-commerce and more</li>
+                                <li>Self-managed company (worker cooperative)</li>
+                                <li>
+                                    <a href="https://twitter.com/coopTilleuls"><i class="fa fa-twitter"></i></a> <a href="https://github.com/coopTilleuls"><i class="fa fa-github"></i></a> @coopTilleuls
+                                </li>
+                                <li><b>We are hiring!</b></li>
+                            </ul>
+                        </div>
+                        <div style="float: left; width: 40%">
+                            <img alt="Les-Tilleuls.coop" src="http://les-tilleuls.coop/wp-content/uploads/2014/06/les-tilleuls.png">
+                        </div>
+                    </section>
+                </section>
+
+                <section>
+                    <section>
+                        <h2>At the beginning, HTTP messages</h2>
+
+                        <pre><code>GET /2015/06/using-psr-7-in-symfony/?user=kevin HTTP/1.1
+Host: dunglas.fr
+Accept: text/html
+User-Agent: Kevin using Telnet</code></pre>
+
+                        <pre><code>HTTP/1.1 301 Moved Permanently
+Date: Tue, 07 Jul 2015 21:34:25 GMT
+Transfer-Encoding: chunked
+Connection: keep-alive
+Set-Cookie: __cfduid=dbe0ddf9f8fa7b7379b4a3b0e2fe9b3871436304865; expires=Wed, 06-Jul-16 21:34:25 GMT; path=/; domain=.dunglas.fr; HttpOnly
+Location: https://dunglas.fr/2015/06/using-psr-7-in-symfony/
+Server: cloudflare-nginx
+CF-RAY: 2026ac574100014c-CDG
+
+0</code></pre>
+
+                        <b>Marshalling is repetitive and relatively hard to do.</b>
+                    </section>
+
+                    <section>
+                        <h2>CGI variables, SAPI, superglobals</h2>
+
+                        <pre><code>if (isset($_GET['user']) && 'kevin' === $_GET['user']) {
+    syslog(LOG_INFO, 'Kevin was here');
+}
+
+header('Location: https://dunglas.fr/2015/06/using-psr-7-in-symfony/');
+echo 0;</code></pre>
+
+                        <p><b>A first abstraction layer</b></p>
+                    </section>
+
+                    <section>
+                        <h2>Practical but...</h2>
+
+                        <ul>
+                            <li>hard to test</li>
+                            <li>coupled to superglobals</li>
+                            <li>not object oriented</li>
+                        </ul>
+                    </section>
+
+                    <section>
+                        <h2>Then, higher abstraction layers</h2>
+
+                        <pre><code>use Symfony\Component\HttpFoundation\Cookie;
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Response;
+
+$request = Request::createFromGlobals();
+$response = new Response('Hello');
+$response->headers->setCookie(new Cookie(
+    'user',
+    $request->get('user', 'anonymous')
+);</code></pre>
+</section>
+                    <section>
+                        <h2>Symfony HttpFoundation</h2>
+
+                        <p>Introduced in Symfony 2.0. Used by Laravel, Drupal, phpBB, eZ Publish...</p>
+                        <p>7M downloads for the standalone component. + almost 7M for the full stack framework.</p>
+                    </section>
+
+                    <section>
+                        <h2>But other implementations exists</h2>
+
+                        <ul>
+                            <li>Guzzle Messages</li>
+                            <li>Zend\Http</li>
+                            <li>ReactPHP Messages</li>
+                            <li>CakePHP Network HTTP</li>
+                            <li>Buzz Messages</li>
+                            <li>...</li>
+                        </ul>
+
+                        <p><b>These implementations are not interoperable.</b></p>
+
+                    </section>
+                </section>
+
+                <section>
+                    <section>
+                        <h2>PHP Framework Interoperability Group (PHP FIG)</h2>
+
+                        <ul>
+                            <li>Symfony</li>
+                            <li>Zend Framework</li>
+                            <li>Laravel</li>
+                            <li>Drupal</li>
+                            <li>eZ Publish</li>
+                            <li>phpBB</li>
+                            <li>...</li>
+                        </ul>
+
+                        <p>Publish PHP Standard Recommendations (PSR).</p>
+                    </section>
+
+                    <section>
+                        <h2>PSR-7: HTTP Messages Interfaces</h2>
+
+                        <ul>
+                            <li>Message: <code>MessageInterface</code></li>
+                            <li>Request: <code>RequestInterface</code></li>
+                            <li>CGI-like style: <code>ServerRequestInterface</code></li>
+                            <li>Response: <code>ResponseInterface</code></li>
+                            <li>Uploaded File: <code>UploadedFileInterface</code></li>
+                            <li>Stream (bodies and files): <code>StreamInterface</code></li>
+                            <li>URI: <code>UriInterface</code></li>
+                        </ul>
+                    </section>
+
+                    <section>
+                        <h2>Using PSR-7 interfaces</h2>
+                        <pre><code>/** @var $request \Psr\Http\Message\ServerRequestInterface */
+$queryParams = $request->getQueryParams();
+if (isset($queryParams['user']) {
+    echo htmlspecialchars($queryParams['user']);
+}
+
+/** @var $response \Psr\Http\Message\ResponseInterface */
+$response->withHeader('X-Foo', 'bar');</code></pre>
+                    </section>
+
+                    <section>
+                        <h2>Differences with HttpFoundation</h2>
+
+                        <ul>
+                            <li><b>Immutability</b> (<code>with*()</code> methods)</li>
+                            <li>Almost everything is stream</li>
+                            <li>Designed to work for servers <b>and</b> clients (think about Guzzle)</li>
+                            <li>Different API</li>
+                        </ul>
+                    </section>
+
+                    <section>
+                        <h2>PSR-7 implementations</h2>
+
+                        <ul>
+                            <li><a href="https://github.com/zendframework/zend-diactoros">Zend Diactoros</a></li>
+                            <li><a href="https://github.com/guzzle/psr7">Guzzle PSR-7</a></li>
+                        </ul>
+                    </section>
+                </section>
+
+                <section>
+                    <section>
+                        <h2>PSR-7 support in Symfony</h2>
+
+                        <ul>
+                            <li>Introduced in Symfony 2.7</li>
+                            <li>Backported for Symfony 2.3+</li>
+                            <li><b>First major framework to support PSR-7</b></li>
+                            <li>Use a converter between HttpFoundation and PSR-7</li>
+                            <li>Zend Diactoros has default PSR-7 implementation</li>
+                        </ul>
+
+                        <p>Install:</p>
+
+                        <pre><code>composer require symfony/psr-http-message-bridge zendframework/zend-diactoros</code></pre>
+                    </section>
+
+                    <section>
+                        <h2>A converter?</h2>
+
+                        <ul>
+                            <li>Implementing PSR-7 interfaces in HttpFoundation is not possible without BC break (immutability)</li>
+                            <li>Work In Progress (with BC break but with upgrade path) for Symfony 3.0</li>
+                            <li>The converter has a negative performance impact</li>
+                        </ul>
+                    </section>
+
+                    <section>
+                        <h2>PSR-7 in Symfony Standard Edition</h2>
+
+                        <pre><code>namespace AppBundle\Controller;
+
+use Psr\Http\Message\ServerRequestInterface;
+use Symfony\Bundle\FrameworkBundle\Controller\Controller;
+use Zend\Diactoros\Response;
+
+class DefaultController extends Controller
+{
+    public function indexAction(ServerRequestInterface $request)
+    {
+        $parsedBody = $request->getParsedBody(); // $_POST content
+        if (isset($parsedBody['message']) {
+            // Yeah, it's PSR-3 here
+            $this->get('logger')->info($parsedBody['message']);
+        }
+
+        $response = new Response();
+
+        $response->getBody()->write('Hello world');
+        $response = $response->withHeader('X-Best', 'Les-Tilleuls.coop');
+
+        return $response;
+    }
+}</code></pre>
+                    </section>
+
+                    <section>
+                        <h2>Symfony to PSR-7 Request</h2>
+
+                        <pre><code>use Symfony\Bridge\PsrHttpMessage\Factory\DiactorosFactory;
+use Symfony\Component\HttpFoundation\Request;
+
+$symfonyRequest = new Request(/* ... */);
+// The HTTP_HOST server key must be set to avoid an unexpected error
+
+$psr7Factory = new DiactorosFactory();
+$psrRequest = $psr7Factory->createRequest($symfonyRequest);</code></pre>
+                    </section>
+
+                    <section>
+                        <h2>Symfony to PSR-7 Response</h2>
+
+                        <pre><code>use Symfony\Bridge\PsrHttpMessage\Factory\DiactorosFactory;
+use Symfony\Component\HttpFoundation\Response;
+
+$symfonyResponse = new Response(/* ... */);
+
+$psr7Factory = new DiactorosFactory();
+$psrResponse = $psr7Factory->createResponse($symfonyResponse);</code></pre>
+                    </section>
+
+                    <section>
+                        <h2>PSR-7 to HttpFoundation Request</h2>
+
+                        <pre><code>use Symfony\Bridge\PsrHttpMessage\Factory\HttpFoundationFactory;
+
+/** @var $psrRequest \Psr\Http\Message\ServerRequestInterface */
+
+$httpFoundationFactory = new HttpFoundationFactory();
+$symfonyRequest = $httpFoundationFactory->createRequest($psrRequest);</code></pre>
+                    </section>
+
+                    <section>
+                        <h2>PSR-7 to HttpFoundation Response</h2>
+
+                        <pre><code>use Symfony\Bridge\PsrHttpMessage\Factory\HttpFoundationFactory;
+
+/** @var $psrResponse \Psr\Http\Message\ResponseInterface */
+
+$httpFoundationFactory = new HttpFoundationFactory();
+$symfonyResponse = $httpFoundationFactory->createResponse($psrResponse);</code></pre>
+                    </section>
+                </section>
+
+                <section>
+                    <h2>Current PSR-7 adoption</h2>
+
+                    <ul>
+                        <li>Symfony 2.3+ (you got it)</li>
+                        <li>Guzzle 6</li>
+                        <li>Laravel 5.1 (using the Symfony Bridge)</li>
+                        <li>Silex 1.2 (using the Symfony Bridge)</li>
+                        <li>Drupal 8 (beta - using the Symfony Bridge)</li>
+                        <li>Slim 3 (beta)</li>
+                        <li>Zend Framework 3 (future)</li>
+                    </ul>
+                </section>
+
+                <section>
+                    <section>
+                        <h2>Interoperable PHP middleware</h2>
+
+                        <p><img src="img/middleware.png" alt="Middleware Schema"><br>
+
+                        Credits: <i>StackPHP</i></p>
+                    </section>
+
+                    <section>
+                        <h2>Existing middleware solutions</h2>
+
+                        <p>In other languages:</p>
+                        <ul>
+                            <li>WSGI (Python)</li>
+                            <li>Rack (Ruby)</li>
+                            <li>Sencha Connect (Node.js)</li>
+                        </ul>
+
+                        <p>In PHP:</p>
+                        <ul>
+                            <li><b><a href="https://github.com/zendframework/zend-stratigility">Zend Stratigility</a> (using PSR-7)</b></li>
+                            <li><a href="http://stackphp.com/">Stack</a> (using Symfony HttpKernel)</li>
+                        </ul>
+                    </section>
+
+                    <section>
+                        <h2>A Stratigility middleware</h2>
+
+                        <pre><code>function myStratigilityMiddleware(
+    \Psr\Http\Message\ServerRequestInterface $request,
+    \Psr\Http\Message\ResponseInterface $response,
+    callable $next = null
+    ) {
+        $response->getBody()->write('Hello from Stratigility');
+
+        return $next($req, $res);
+}</code></pre>
+                    </section>
+
+                    <section>
+                        <h2>Used in a Symfony controller</h2>
+
+                        <pre><code>class MyController {
+    public function indexAction(\Psr\Http\Message\ServerRequestInterface $request)
+    {
+        $response = new \Zend\Diactoros\Response();
+
+        return myStratigilityMiddleware($request, $response, function ($req, $res) {
+            return $res;
+    });
+}</code></pre>
+                    </section>
+
+                    <section>
+                        <h2>Or in a Symfony event</h2>
+
+                        <pre><code>use Symfony\Bridge\PsrHttpMessage\Factory\DiactorosFactory;
+use Symfony\Bridge\PsrHttpMessage\Factory\HttpFoundationFactory;
+use Symfony\Component\HttpKernel\Event\GetResponseEvent;
+
+public function onKernelRequest(GetResponseEvent $event)
+{
+    if (!$event->isMasterRequest()) {
+        return;
+    }
+
+    $httpFoundationFactory = new HttpFoundationFactory();
+    $diactorosFactory = new DiactorosFactory();
+
+    myStratigilityMiddleware(
+        $diactorosFactory->createRequest($event->getRequest()),
+        $diactorosFactory->createResponse($event->getResponse()),
+        function ($req, $res) use ($event) {
+            $event->setResponse($httpFoundationFactory->createResponse($res));
+        }
+    );
+}
+                        </code></pre>
+                    </section>
+                </section>
+
+                <section>
+                    <h2>Summary</h2>
+
+                    <ul>
+                        <li>PSR-7 is awesome for interoperability at the library level</li>
+                        <li>Symfony use a converter to support PSR-7</li>
+                        <li>it allows to use PSR-7 middleware with Symfony HttpFoundation based libraries</li>
+                        <li>the other side is true too</li>
+                        <li>for performance reasons: <b>if you don't need it, don't use it</b></li>
+                    </ul>
+                </section>
+
+                <section>
+                    <h2>Questions?</h2>
+
+                    <img src="img/php-beer.jpg" alt="PHP beer" width="700">
+                </section>
+            </div>
+
+		</div>
+
+		<script src="lib/js/head.min.js"></script>
+		<script src="js/reveal.js"></script>
+
+		<script>
+
+			// Full list of configuration options available at:
+			// https://github.com/hakimel/reveal.js#configuration
+			Reveal.initialize({
+				controls: true,
+				progress: true,
+				history: true,
+				center: true,
+
+				transition: 'slide', // none/fade/slide/convex/concave/zoom
+
+				// Optional reveal.js plugins
+				dependencies: [
+					{ src: 'lib/js/classList.js', condition: function() { return !document.body.classList; } },
+					{ src: 'plugin/markdown/marked.js', condition: function() { return !!document.querySelector( '[data-markdown]' ); } },
+					{ src: 'plugin/markdown/markdown.js', condition: function() { return !!document.querySelector( '[data-markdown]' ); } },
+					{ src: 'plugin/highlight/highlight.js', async: true, condition: function() { return !!document.querySelector( 'pre code' ); }, callback: function() { hljs.initHighlightingOnLoad(); } },
+					{ src: 'plugin/zoom-js/zoom.js', async: true },
+					{ src: 'plugin/notes/notes.js', async: true }
+				]
+			});
+
+		</script>
+
+	</body>
+</html>
